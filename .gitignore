@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+.env
+.DS_Store
+
+# snapshot output - keep the dir but not the dated files
+data/subnet_scout/subnets_*.json
+data/subnet_scout/identities_*.json
+snapshot.log
+*.csv
+*.md
+!README.md

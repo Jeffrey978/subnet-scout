@@ -1,0 +1,64 @@
+{
+  "data": [
+    {
+      "netuid": 1,
+      "name": "Apex",
+      "neuron_registration_cost": "25000000000",
+      "active_keys": 230,
+      "active_validators": 24,
+      "max_neurons": 256,
+      "price": 0.012,
+      "price_change_24h": -3.4,
+      "volume_24h": 412.5,
+      "tao_in_pool": 1820.0
+    },
+    {
+      "netuid": 21,
+      "name": "AdTAO",
+      "neuron_registration_cost": "200000000",
+      "active_keys": 140,
+      "active_validators": 11,
+      "max_neurons": 256,
+      "price": 0.0021,
+      "price_change_24h": 7.1,
+      "volume_24h": 64.0,
+      "tao_in_pool": 142.0
+    },
+    {
+      "netuid": 46,
+      "name": "Zipcode",
+      "neuron_registration_cost": "100000000",
+      "active_keys": 1,
+      "active_validators": 2,
+      "max_neurons": 256,
+      "price": 0.0004,
+      "price_change_24h": 0.0,
+      "volume_24h": 1.2,
+      "tao_in_pool": 8.0
+    },
+    {
+      "netuid": 88,
+      "name": "",
+      "neuron_registration_cost": "100000000",
+      "active_keys": 0,
+      "active_validators": 0,
+      "max_neurons": 256,
+      "price": 0.0,
+      "price_change_24h": null,
+      "volume_24h": 0,
+      "tao_in_pool": 0.1
+    },
+    {
+      "netuid": 102,
+      "name": "TextRank",
+      "neuron_registration_cost": "300000000",
+      "active_keys": 38,
+      "active_validators": 6,
+      "max_neurons": 256,
+      "price": 0.0009,
+      "price_change_24h": 18.2,
+      "volume_24h": 22.0,
+      "tao_in_pool": 41.0
+    }
+  ]
+}

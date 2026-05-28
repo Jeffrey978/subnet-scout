@@ -1,0 +1,36 @@
+{
+  "data": [
+    {
+      "netuid": 1,
+      "subnet_name": "Apex",
+      "symbol": "APEX",
+      "url": "https://taoapex.io",
+      "github_repo": "https://github.com/macrocosm-os/prompting",
+      "description": "Real-time LLM prompting and ranking. GPU inference servers required for miners."
+    },
+    {
+      "netuid": 21,
+      "subnet_name": "AdTAO",
+      "symbol": "ADTAO",
+      "url": "https://adtao.io",
+      "github_repo": "https://github.com/adtao/adtao-subnet",
+      "description": "Google Ads optimization subnet. CPU-only miners run keyword scoring and ad ranking via API calls. Public leaderboard."
+    },
+    {
+      "netuid": 46,
+      "subnet_name": "Zipcode",
+      "symbol": "ZIP",
+      "url": "",
+      "github_repo": "",
+      "description": "Real estate credit signal subnet. Miner setup currently unclear."
+    },
+    {
+      "netuid": 102,
+      "subnet_name": "TextRank",
+      "symbol": "TXR",
+      "url": "https://textrank.example",
+      "github_repo": "https://github.com/example/textrank-subnet",
+      "description": "Text classification and ranking. VPS-friendly, no GPU required for the base miner."
+    }
+  ]
+}
