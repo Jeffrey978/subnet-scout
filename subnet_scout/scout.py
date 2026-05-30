@@ -22,9 +22,15 @@ def _fetch(client: taostats.TaostatsClient) -> list[dict]:
     subnets = client.subnets(limit=256)
     try:
         idents = client.subnet_identities()
-    except taostats.TaostatsError:
+    except taostats.TaostatsError as e:
+        print(f"warning: identity fetch failed ({e}); names/docs will be sparse.", file=sys.stderr)
         idents = []
-    return identity.merge(subnets, idents)
+    try:
+        pools = client.dtao_pools()
+    except taostats.TaostatsError as e:
+        print(f"warning: pool fetch failed ({e}); price/volume/24h columns will be blank.", file=sys.stderr)
+        pools = []
+    return identity.merge(subnets, idents, pools)
 
 
 def cmd_report(args) -> int:
@@ -64,10 +70,11 @@ def cmd_snapshot(args) -> int:
     try:
         subnets = client.subnets(limit=256)
         idents = client.subnet_identities()
+        pools = client.dtao_pools()
     except taostats.TaostatsError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    path = taostats.save_snapshot({"subnets": subnets, "identities": idents})
+    path = taostats.save_snapshot({"subnets": subnets, "identities": idents, "pools": pools})
     print(f"saved {path}")
     return 0
 

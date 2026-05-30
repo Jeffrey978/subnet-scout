@@ -35,7 +35,7 @@ class TaostatsClient:
         url = f"{API_BASE}{path}"
         if params:
             url = f"{url}?{urlencode({k: v for k, v in params.items() if v is not None})}"
-        req = Request(url, headers={"Authorization": self.api_key, "accept": "application/json"})
+        req = Request(url, headers={"Authorization": self.api_key, "accept": "application/json", "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"})
         try:
             with urlopen(req, timeout=self.timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
@@ -59,6 +59,11 @@ class TaostatsClient:
 
     def subnet_identities(self) -> list[dict]:
         data = self._get("/api/subnet/identity/v1", {"limit": 256})
+        return data.get("data", data) if isinstance(data, dict) else data
+
+    def dtao_pools(self) -> list[dict]:
+        """Per-subnet alpha pool data: price, 24h change, volume, sentiment."""
+        data = self._get("/api/dtao/pool/latest/v1", {"limit": 256})
         return data.get("data", data) if isinstance(data, dict) else data
 
     def subnet_detail(self, netuid: int) -> dict:
@@ -88,3 +93,4 @@ def latest_snapshot(label: str = "subnets") -> Path | None:
 
 def load_snapshot(path: Path) -> dict:
     return json.loads(Path(path).read_text(encoding="utf-8"))
+
