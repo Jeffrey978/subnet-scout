@@ -31,6 +31,11 @@ python3 -m subnet_scout.scout
 
 # practical VPS/CPU shortlist with reason + next action
 python3 -m subnet_scout.scout leads
+python3 -m subnet_scout.scout leads --json
+
+# one-subnet practical due-diligence checklist
+python3 -m subnet_scout.scout deep 124
+python3 -m subnet_scout.scout deep 124 --json
 
 # only CPU-friendly subnets, no dead ones
 python3 -m subnet_scout.scout report --filter-cpu --no-dead --top 30

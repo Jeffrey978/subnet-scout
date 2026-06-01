@@ -57,8 +57,8 @@ LEAD_COLS = [
     ("active_validators", "Vals", 5),
     ("flow_1d_tao", "Flow1d", 8),
     ("score", "Score", 7),
-    ("reason", "Why", 42),
-    ("next_action", "Next", 34),
+    ("reason", "Why", 64),
+    ("next_action", "Next", 42),
 ]
 
 

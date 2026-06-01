@@ -3,6 +3,7 @@
 Usage:
   python3 -m subnet_scout.scout                  # default: ranked report (live)
   python3 -m subnet_scout.scout leads            # practical VPS/CPU shortlist
+  python3 -m subnet_scout.scout deep 124         # practical repo/docs checklist
   python3 -m subnet_scout.scout --offline        # use bundled fixtures
   python3 -m subnet_scout.scout inspect 46       # one-subnet deep view
   python3 -m subnet_scout.scout snapshot         # pull + save dated JSON
@@ -17,6 +18,14 @@ import sys
 from pathlib import Path
 
 from . import identity, report, scoring, taostats
+
+
+DEEP_FIELDS = [
+    "netuid", "name", "symbol", "registration_cost_tao", "active_miners",
+    "active_validators", "max_neurons", "flow_1d_tao", "flow_7d_tao",
+    "score", "opportunity", "risk", "verdict", "tags", "website", "github",
+    "summary", "reason", "next_action",
+]
 
 
 def _fetch(client: taostats.TaostatsClient) -> list[dict]:
@@ -125,7 +134,59 @@ def cmd_leads(args) -> int:
         s = {**s, "reason": _lead_reason(s), "next_action": _lead_next_action(s)}
         leads.append(s)
 
-    print(report.render_leads(leads, top=args.top))
+    leads = leads[:args.top] if args.top is not None else leads
+    if args.json:
+        print(json.dumps([_compact(row) for row in leads], indent=2, sort_keys=True))
+    else:
+        print(report.render_leads(leads, top=None))
+    return 0
+
+
+def _compact(row: dict) -> dict:
+    return {k: row.get(k) for k in DEEP_FIELDS if k in row}
+
+
+def cmd_deep(args) -> int:
+    """Print a practical due-diligence checklist for one subnet."""
+    client = taostats.TaostatsClient(offline=args.offline)
+    try:
+        merged, warning = _fetch_with_cache(client)
+    except taostats.TaostatsError as e:
+        print(f"error: {e}", file=sys.stderr)
+        return 2
+    if warning:
+        print(f"warning: {warning}", file=sys.stderr)
+
+    target = next((s for s in merged if s["netuid"] == args.netuid), None)
+    if not target:
+        print(f"no subnet with netuid {args.netuid} in current data", file=sys.stderr)
+        return 1
+
+    scored = scoring.score_subnet(target)
+    scored = {**scored, "reason": _lead_reason(scored), "next_action": _lead_next_action(scored)}
+    if args.json:
+        print(json.dumps(_compact(scored), indent=2, sort_keys=True))
+        return 0
+
+    print(report.render_inspect(scored))
+    print("\nDeep checklist:")
+    checklist = [
+        "1. Open website/docs and confirm a miner setup path exists.",
+        "2. Read README, install docs, .env.example, and hardware requirements.",
+        "3. Identify miner entrypoint, validator entrypoint, protocol/synapse files, and scoring/reward logic.",
+        "4. Confirm whether CPU/VPS is genuinely viable or just superficially cheap.",
+        "5. Run setup smoke test without registering if possible.",
+        "6. Estimate edge: infra, data, model quality, latency, capital, or strategy.",
+        "7. Only register after a local baseline can submit valid work or pass benchmark checks.",
+    ]
+    for line in checklist:
+        print(f"  {line}")
+    print("\nCommands to run next:")
+    if scored.get("github"):
+        print(f"  git clone {scored['github']}")
+    if scored.get("website"):
+        print(f"  open docs/site: {scored['website']}")
+    print(f"  python -m subnet_scout.scout inspect {args.netuid}")
     return 0
 
 
@@ -206,6 +267,7 @@ def build_parser() -> argparse.ArgumentParser:
 
     l = sub.add_parser("leads", help="practical VPS/CPU shortlist with reason + next action")
     l.add_argument("--top", type=int, default=15)
+    l.add_argument("--json", action="store_true", help="emit machine-readable JSON")
     l.add_argument("--cpu", action="store_true", default=True, help="only CPU/VPS-plausible subnets (default)")
     l.add_argument("--all-hardware", dest="cpu", action="store_false", help="include non-CPU-tagged subnets")
     l.add_argument("--max-reg", type=float, default=1.0, help="maximum registration cost in TAO")
@@ -213,6 +275,11 @@ def build_parser() -> argparse.ArgumentParser:
     l.add_argument("--no-crowded", action="store_true", default=True, help="hide crowded subnets (default)")
     l.add_argument("--include-crowded", dest="no_crowded", action="store_false")
     l.set_defaults(func=cmd_leads)
+
+    d = sub.add_parser("deep", help="single-subnet practical due-diligence checklist")
+    d.add_argument("netuid", type=int)
+    d.add_argument("--json", action="store_true", help="emit compact machine-readable JSON")
+    d.set_defaults(func=cmd_deep)
 
     i = sub.add_parser("inspect", help="single-subnet research view")
     i.add_argument("netuid", type=int)
