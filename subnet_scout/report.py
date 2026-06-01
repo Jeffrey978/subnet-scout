@@ -12,7 +12,7 @@ COLS = [
     ("registration_cost_tao", "Reg", 7),
     ("active_miners", "Miners", 7),
     ("active_validators", "Vals", 5),
-    ("flow_1d_tao", "Flow1d", 12),
+    ("flow_1d_tao", "Flow1d", 8),
     ("opportunity", "Opp", 6),
     ("risk", "Risk", 6),
     ("score", "Score", 7),
@@ -27,7 +27,7 @@ def _fmt(v, width: int, key: str | None = None) -> str:
         if key == "registration_cost_tao":
             s = _num(v)
         elif key and key.startswith("flow_"):
-            s = _compact(v)
+            s = f"{v:.2f}"
         else:
             s = f"{v:.2f}"
     else:
@@ -35,16 +35,6 @@ def _fmt(v, width: int, key: str | None = None) -> str:
     if len(s) > width:
         s = s[: max(1, width - 1)] + "~"
     return s.ljust(width)
-
-
-def _compact(v: float) -> str:
-    """Format a TAO flow value compactly: 1234.5 → 1.23K, -50000 → -50.0K."""
-    a = abs(v)
-    if a >= 1_000_000:
-        return f"{v/1_000_000:.2f}M"
-    if a >= 1_000:
-        return f"{v/1_000:.2f}K"
-    return f"{v:.2f}"
 
 
 def render_table(scored: Iterable[dict], *, top: int | None = 25) -> str:
@@ -56,6 +46,33 @@ def render_table(scored: Iterable[dict], *, top: int | None = 25) -> str:
     lines = [header, sep]
     for r in rows:
         lines.append("  ".join(_fmt(r.get(k), w, k) for k, _, w in COLS))
+    return "\n".join(lines)
+
+
+LEAD_COLS = [
+    ("netuid", "SN", 4),
+    ("name", "Name", 18),
+    ("registration_cost_tao", "Reg", 8),
+    ("active_miners", "Miners", 7),
+    ("active_validators", "Vals", 5),
+    ("flow_1d_tao", "Flow1d", 8),
+    ("score", "Score", 7),
+    ("reason", "Why", 42),
+    ("next_action", "Next", 34),
+]
+
+
+def render_leads(scored: Iterable[dict], *, top: int | None = 15) -> str:
+    rows = list(scored)
+    if top is not None:
+        rows = rows[:top]
+    header = "  ".join(label.ljust(w) for _, label, w in LEAD_COLS)
+    sep = "  ".join("-" * w for _, _, w in LEAD_COLS)
+    lines = [header, sep]
+    for r in rows:
+        lines.append("  ".join(_fmt(r.get(k), w, k) for k, _, w in LEAD_COLS))
+    if len(lines) == 2:
+        lines.append("No leads matched filters. Try --all-hardware or --include-crowded.")
     return "\n".join(lines)
 
 

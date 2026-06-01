@@ -29,6 +29,9 @@ cp .env.example .env
 # default: ranked report (live)
 python3 -m subnet_scout.scout
 
+# practical VPS/CPU shortlist with reason + next action
+python3 -m subnet_scout.scout leads
+
 # only CPU-friendly subnets, no dead ones
 python3 -m subnet_scout.scout report --filter-cpu --no-dead --top 30
 
