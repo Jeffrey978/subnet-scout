@@ -164,4 +164,12 @@ def _to_tao(v: Any) -> float | None:
     f = _to_float(v)
     if f is None:
         return None
-    return f / 1e9 if abs(f) >= 1000 else f
+    # Standard rao→TAO: values >= 1000 are assumed to be in rao.
+    if abs(f) >= 1000:
+        f = f / 1e9
+    # Some endpoints (e.g. Root net_flow) return values pre-multiplied by an
+    # extra 1e9, yielding billions of TAO after one division. Total TAO supply
+    # is ~21M so anything > 1e8 post-division is a second rao encoding.
+    if abs(f) > 1e8:
+        f = f / 1e9
+    return f

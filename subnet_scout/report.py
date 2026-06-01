@@ -12,7 +12,7 @@ COLS = [
     ("registration_cost_tao", "Reg", 7),
     ("active_miners", "Miners", 7),
     ("active_validators", "Vals", 5),
-    ("flow_1d_tao", "Flow1d", 8),
+    ("flow_1d_tao", "Flow1d", 12),
     ("opportunity", "Opp", 6),
     ("risk", "Risk", 6),
     ("score", "Score", 7),
@@ -27,7 +27,7 @@ def _fmt(v, width: int, key: str | None = None) -> str:
         if key == "registration_cost_tao":
             s = _num(v)
         elif key and key.startswith("flow_"):
-            s = f"{v:.2f}"
+            s = _compact(v)
         else:
             s = f"{v:.2f}"
     else:
@@ -35,6 +35,16 @@ def _fmt(v, width: int, key: str | None = None) -> str:
     if len(s) > width:
         s = s[: max(1, width - 1)] + "~"
     return s.ljust(width)
+
+
+def _compact(v: float) -> str:
+    """Format a TAO flow value compactly: 1234.5 → 1.23K, -50000 → -50.0K."""
+    a = abs(v)
+    if a >= 1_000_000:
+        return f"{v/1_000_000:.2f}M"
+    if a >= 1_000:
+        return f"{v/1_000:.2f}K"
+    return f"{v:.2f}"
 
 
 def render_table(scored: Iterable[dict], *, top: int | None = 25) -> str:
