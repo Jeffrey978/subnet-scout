@@ -12,7 +12,7 @@ COLS = [
     ("registration_cost_tao", "Reg", 7),
     ("active_miners", "Miners", 7),
     ("active_validators", "Vals", 5),
-    ("price_change_24h", "24h%", 7),
+    ("flow_1d_tao", "Flow1d", 8),
     ("opportunity", "Opp", 6),
     ("risk", "Risk", 6),
     ("score", "Score", 7),
@@ -20,11 +20,16 @@ COLS = [
 ]
 
 
-def _fmt(v, width: int) -> str:
+def _fmt(v, width: int, key: str | None = None) -> str:
     if v is None:
         s = "-"
     elif isinstance(v, float):
-        s = f"{v:.2f}"
+        if key == "registration_cost_tao":
+            s = _num(v)
+        elif key and key.startswith("flow_"):
+            s = f"{v:.2f}"
+        else:
+            s = f"{v:.2f}"
     else:
         s = str(v)
     if len(s) > width:
@@ -40,7 +45,7 @@ def render_table(scored: Iterable[dict], *, top: int | None = 25) -> str:
     sep = "  ".join("-" * w for _, _, w in COLS)
     lines = [header, sep]
     for r in rows:
-        lines.append("  ".join(_fmt(r.get(k), w) for k, _, w in COLS))
+        lines.append("  ".join(_fmt(r.get(k), w, k) for k, _, w in COLS))
     return "\n".join(lines)
 
 
@@ -59,6 +64,8 @@ def render_inspect(s: dict) -> str:
         f"Validators     : {_num(s.get('active_validators'))}",
         f"Price (TAO)    : {_num(s.get('price_tao'))}",
         f"24h change %   : {_num(s.get('price_change_24h'))}",
+        f"1d flow (TAO)  : {_num(s.get('flow_1d_tao'))}",
+        f"7d flow (TAO)  : {_num(s.get('flow_7d_tao'))}",
         f"24h volume     : {_num(s.get('volume_24h'))}",
         f"TAO in pool    : {_num(s.get('tao_in_pool'))}",
         "",
@@ -99,7 +106,7 @@ def _wrap(text: str, width: int = 72) -> str:
 EXPORT_FIELDS = [
     "netuid", "name", "symbol", "verdict", "score", "opportunity", "risk",
     "registration_cost_tao", "active_miners", "active_validators",
-    "price_tao", "price_change_24h", "volume_24h",
+    "price_tao", "price_change_24h", "flow_1d_tao", "flow_7d_tao", "volume_24h",
     "website", "github", "tags", "summary",
 ]
 
@@ -119,8 +126,8 @@ def export_csv(scored: list[dict], path: Path) -> Path:
 def export_markdown(scored: list[dict], path: Path, *, top: int | None = 50) -> Path:
     path = Path(path)
     rows = scored[:top] if top else scored
-    md = ["# Subnet Scout report", "", "| SN | Name | Reg | Miners | Vals | 24h% | Opp | Risk | Score | Verdict | Tags |",
-          "|---:|------|----:|------:|-----:|-----:|----:|----:|------:|---------|------|"]
+    md = ["# Subnet Scout report", "", "| SN | Name | Reg | Miners | Vals | Flow1d | Opp | Risk | Score | Verdict | Tags |",
+          "|---:|------|----:|------:|-----:|------:|----:|----:|------:|---------|------|"]
     for s in rows:
         md.append(
             "| {netuid} | {name} | {reg} | {miners} | {vals} | {ch} | {opp} | {risk} | {score} | {verdict} | {tags} |".format(
@@ -129,7 +136,7 @@ def export_markdown(scored: list[dict], path: Path, *, top: int | None = 50) -> 
                 reg=_num(s.get("registration_cost_tao")),
                 miners=_num(s.get("active_miners")),
                 vals=_num(s.get("active_validators")),
-                ch=_num(s.get("price_change_24h")),
+                ch=_num(s.get("flow_1d_tao")),
                 opp=s.get("opportunity"),
                 risk=s.get("risk"),
                 score=s.get("score"),

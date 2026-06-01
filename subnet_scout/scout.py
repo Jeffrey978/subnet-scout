@@ -22,24 +22,39 @@ def _fetch(client: taostats.TaostatsClient) -> list[dict]:
     subnets = client.subnets(limit=256)
     try:
         idents = client.subnet_identities()
-    except taostats.TaostatsError as e:
-        print(f"warning: identity fetch failed ({e}); names/docs will be sparse.", file=sys.stderr)
+    except taostats.TaostatsError:
         idents = []
     try:
-        pools = client.dtao_pools()
-    except taostats.TaostatsError as e:
-        print(f"warning: pool fetch failed ({e}); price/volume/24h columns will be blank.", file=sys.stderr)
+        pools = client.dtao_pools(limit=256)
+    except taostats.TaostatsError:
         pools = []
-    return identity.merge(subnets, idents, pools)
+    merged = identity.merge(subnets, idents, pools)
+    if not client.offline:
+        taostats.save_live_cache({"subnets": subnets, "identities": idents, "pools": pools})
+    return merged
+
+
+def _fetch_with_cache(client: taostats.TaostatsClient) -> tuple[list[dict], str | None]:
+    try:
+        return _fetch(client), None
+    except taostats.TaostatsError as e:
+        cached = taostats.load_live_cache()
+        if cached:
+            merged = identity.merge(cached.get("subnets", []), cached.get("identities", []), cached.get("pools", []))
+            age = cached.get("created_at", "unknown time")
+            return merged, f"live fetch failed ({e}); using cached data from {age}"
+        raise
 
 
 def cmd_report(args) -> int:
     client = taostats.TaostatsClient(offline=args.offline)
     try:
-        merged = _fetch(client)
+        merged, warning = _fetch_with_cache(client)
     except taostats.TaostatsError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    if warning:
+        print(f"warning: {warning}", file=sys.stderr)
     scored = scoring.score_all(merged)
     if args.filter_cpu:
         scored = [s for s in scored if "CPU_possible" in s["tags"]]
@@ -52,10 +67,12 @@ def cmd_report(args) -> int:
 def cmd_inspect(args) -> int:
     client = taostats.TaostatsClient(offline=args.offline)
     try:
-        merged = _fetch(client)
+        merged, warning = _fetch_with_cache(client)
     except taostats.TaostatsError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    if warning:
+        print(f"warning: {warning}", file=sys.stderr)
     target = next((s for s in merged if s["netuid"] == args.netuid), None)
     if not target:
         print(f"no subnet with netuid {args.netuid} in current data", file=sys.stderr)
@@ -69,12 +86,22 @@ def cmd_snapshot(args) -> int:
     client = taostats.TaostatsClient(offline=args.offline)
     try:
         subnets = client.subnets(limit=256)
-        idents = client.subnet_identities()
-        pools = client.dtao_pools()
     except taostats.TaostatsError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
-    path = taostats.save_snapshot({"subnets": subnets, "identities": idents, "pools": pools})
+    try:
+        idents = client.subnet_identities()
+    except taostats.TaostatsError as e:
+        idents = []
+        print(f"warning: identity fetch failed; saving subnet snapshot only ({e})", file=sys.stderr)
+    try:
+        pools = client.dtao_pools(limit=256)
+    except taostats.TaostatsError as e:
+        pools = []
+        print(f"warning: dTAO pool fetch failed; saving without pool data ({e})", file=sys.stderr)
+    payload = {"subnets": subnets, "identities": idents, "pools": pools}
+    path = taostats.save_snapshot(payload)
+    taostats.save_live_cache(payload)
     print(f"saved {path}")
     return 0
 
@@ -82,10 +109,12 @@ def cmd_snapshot(args) -> int:
 def cmd_export(args) -> int:
     client = taostats.TaostatsClient(offline=args.offline)
     try:
-        merged = _fetch(client)
+        merged, warning = _fetch_with_cache(client)
     except taostats.TaostatsError as e:
         print(f"error: {e}", file=sys.stderr)
         return 2
+    if warning:
+        print(f"warning: {warning}", file=sys.stderr)
     scored = scoring.score_all(merged)
     out = Path(args.out)
     if args.format == "csv":

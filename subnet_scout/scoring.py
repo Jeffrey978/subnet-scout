@@ -86,7 +86,21 @@ def _liquidity_score(volume: float | None, tao_in_pool: float | None) -> float:
     return 0.0
 
 
-def _momentum_score(change_24h: float | None) -> float:
+def _momentum_score(change_24h: float | None, flow_1d: float | None = None, flow_7d: float | None = None) -> float:
+    # Prefer actual TAO flow when available; it is more useful for subnet scouting
+    # than spot price percent change, which is often missing from Taostats rows.
+    if flow_1d is not None or flow_7d is not None:
+        f1 = flow_1d or 0.0
+        f7 = flow_7d or 0.0
+        if f1 > 100 and f7 > 0:
+            return 1.0
+        if f1 > 0 and f7 > 0:
+            return 0.8
+        if f1 > 0 or f7 > 0:
+            return 0.6
+        if f1 < -100 and f7 < -100:
+            return 0.1
+        return 0.3
     if change_24h is None:
         return 0.5
     if change_24h >= 25:
@@ -108,7 +122,7 @@ def score_subnet(s: dict) -> dict:
         + _room_score(s.get("active_miners"), s.get("max_neurons")) * W_ROOM_TO_ENTER
         + _validator_score(s.get("active_validators")) * W_VALIDATOR_ACTIVITY
         + _liquidity_score(s.get("volume_24h"), s.get("tao_in_pool")) * W_LIQUIDITY
-        + _momentum_score(s.get("price_change_24h")) * W_MOMENTUM
+        + _momentum_score(s.get("price_change_24h"), s.get("flow_1d_tao"), s.get("flow_7d_tao")) * W_MOMENTUM
     )
     if "CPU_possible" in tags:
         opp += W_CPU_BONUS

@@ -22,7 +22,7 @@ GPU_HINT_RE = re.compile(
     r"diffusion|inference\s*servers?|tensor[- ]?core)\b",
     re.I,
 )
-PLACEHOLDER_NAMES = {"", "subnet", "test", "tbd", "placeholder", "none", "n/a"}
+PLACEHOLDER_NAMES = {"", "subnet", "test", "tbd", "placeholder", "none", "n/a", "unknown", "pending", "parked", "deprecated"}
 
 
 def _pick(d: dict, *keys: str, default: Any = None) -> Any:
@@ -37,16 +37,12 @@ def normalize_subnet(row: dict, identity: dict | None = None, pool: dict | None 
     netuid = _pick(row, "netuid", "net_uid", "id")
     ident = identity or {}
     pool = pool or {}
-    name = _pick(ident, "subnet_name", "name") or _pick(row, "name", "subnet_name") or _pick(pool, "name") or ""
-    symbol = _pick(ident, "symbol", "ticker") or _pick(row, "symbol") or _pick(pool, "symbol") or ""
+    name = _pick(ident, "subnet_name", "name") or _pick(pool, "name") or _pick(row, "name", "subnet_name") or ""
+    symbol = _pick(ident, "symbol", "ticker") or _pick(pool, "symbol") or _pick(row, "symbol") or ""
     website = _pick(ident, "url", "website", "subnet_url") or ""
     github = _pick(ident, "github_repo", "github", "github_url") or ""
     summary = _pick(ident, "description", "summary", "subnet_contact") or ""
     contact = _pick(ident, "subnet_contact", "discord", "contact") or ""
-
-    # Taostats pool volumes come in rao (1e-9 TAO).
-    tao_vol_24h = _to_tao(_pick(pool, "tao_volume_24_hr"))
-    tao_in_pool = _to_tao(_pick(pool, "total_tao", "tao_in", "tao_in_pool"))
 
     return {
         "netuid": netuid,
@@ -61,16 +57,20 @@ def normalize_subnet(row: dict, identity: dict | None = None, pool: dict | None 
         "active_miners": _to_int(_pick(row, "active_miners", "active_keys", "neurons", "subnet_size")),
         "active_validators": _to_int(_pick(row, "active_validators", "validators")),
         "max_neurons": _to_int(_pick(row, "max_neurons", "max_n")),
-        "price_tao": _to_float(_pick(pool, "price", "last_price") or _pick(row, "price", "alpha_price", "price_in_tao")),
-        "price_change_24h": _to_float(_pick(pool, "price_change_1_day", "price_change_24h")),
-        "price_change_7d": _to_float(_pick(pool, "price_change_1_week")),
-        "volume_24h": tao_vol_24h,
-        "tao_in_pool": tao_in_pool,
-        "buyers_24h": _to_int(_pick(pool, "buyers_24_hr")),
-        "market_cap_tao": _to_tao(_pick(pool, "market_cap")),
-        "tao_flow_1d": _to_tao(_pick(row, "net_flow_1_day", "tao_flow")),
-        "fng": _to_int(_pick(pool, "fear_and_greed_index")),
+        "price_tao": _to_float(_pick(pool, "price", "alpha_price", "price_in_tao") or _pick(row, "price", "alpha_price", "price_in_tao")),
+        "price_change_24h": _to_float(_pick(pool, "price_change_24h", "price_change_1d_percent") or _pick(row, "price_change_24h", "price_change_1d_percent")),
+        "volume_24h": _to_float(_pick(pool, "volume_24h", "alpha_volume_24h") or _pick(row, "volume_24h", "alpha_volume_24h")),
+        "tao_in_pool": _to_tao(_pick(pool, "tao_in_pool", "total_tao", "tao_in") or _pick(row, "tao_in", "tao_in_pool")),
+        "liquidity": _to_tao(_pick(pool, "liquidity")),
+        "market_cap": _to_tao(_pick(pool, "market_cap")),
+        "root_prop": _to_float(_pick(pool, "root_prop")),
+        "flow_1d_tao": _to_tao(_pick(row, "net_flow_1_day", "tao_flow_1_day", "flow_1d")),
+        "flow_7d_tao": _to_tao(_pick(row, "net_flow_7_days", "tao_flow_7_days", "flow_7d")),
+        "flow_30d_tao": _to_tao(_pick(row, "net_flow_30_days", "tao_flow_30_days", "flow_30d")),
+        "registration_allowed": bool(_pick(row, "registration_allowed", default=False)),
+        "pow_registration_allowed": bool(_pick(row, "pow_registration_allowed", default=False)),
         "raw": row,
+        "pool_raw": pool,
     }
 
 
@@ -90,11 +90,7 @@ def merge(subnets: list[dict], identities: list[dict] | None, pools: list[dict] 
         netuid = _pick(row, "netuid", "net_uid", "id")
         if netuid is None:
             continue
-        out.append(normalize_subnet(
-            row,
-            ident_by_uid.get(int(netuid)),
-            pool_by_uid.get(int(netuid)),
-        ))
+        out.append(normalize_subnet(row, ident_by_uid.get(int(netuid)), pool_by_uid.get(int(netuid))))
     out.sort(key=lambda s: s["netuid"] if s["netuid"] is not None else 9999)
     return out
 
@@ -158,9 +154,14 @@ def _to_float(v: Any) -> float | None:
 
 
 def _to_tao(v: Any) -> float | None:
-    """Reg cost often arrives in rao (1e-9 TAO). Heuristic: any value > 1e6 is rao."""
+    """Convert Taostats rao-like integer fields into TAO.
+
+    Registration cost, pool values, and flow values often arrive as integer
+    rao strings. Human TAO values are normally small decimals; large absolute
+    integer-looking values should be divided by 1e9. This intentionally treats
+    values like 500000 as 0.0005 TAO.
+    """
     f = _to_float(v)
     if f is None:
         return None
-    return f / 1e9 if f > 1e6 else f
-
+    return f / 1e9 if abs(f) >= 1000 else f

@@ -13,7 +13,6 @@ from urllib.request import Request, urlopen
 API_BASE = "https://api.taostats.io"
 DATA_DIR = Path(__file__).resolve().parent.parent / "data" / "subnet_scout"
 FIXTURE_DIR = DATA_DIR / "fixtures"
-CACHE_PATH = DATA_DIR / "live_cache.json"
 
 
 class TaostatsError(RuntimeError):
@@ -21,12 +20,10 @@ class TaostatsError(RuntimeError):
 
 
 def _load_api_key_from_file() -> str | None:
-    """Load TAOSTATS_API_KEY from common local env files without requiring exports."""
     candidates = [
         Path.cwd() / ".env",
         Path(__file__).resolve().parent.parent / ".env",
         Path(__file__).resolve().parent / ".env",
-        Path.home() / ".kairo" / ".env",
     ]
     for path in candidates:
         if not path.exists():
@@ -35,9 +32,9 @@ def _load_api_key_from_file() -> str | None:
             line = line.strip()
             if not line or line.startswith("#") or "=" not in line:
                 continue
-            k, v = line.split("=", 1)
-            if k.strip() == "TAOSTATS_API_KEY":
-                return v.strip().strip('"').strip("'")
+            key, value = line.split("=", 1)
+            if key.strip() == "TAOSTATS_API_KEY":
+                return value.strip().strip('"').strip("'")
     return None
 
 
@@ -50,18 +47,29 @@ class TaostatsClient:
     def _get(self, path: str, params: dict[str, Any] | None = None) -> dict:
         if self.offline:
             return self._load_fixture(path, params)
+
         if not self.api_key:
             raise TaostatsError(
                 "TAOSTATS_API_KEY not set. Run with --offline to use bundled fixtures."
             )
+
         url = f"{API_BASE}{path}"
         if params:
             url = f"{url}?{urlencode({k: v for k, v in params.items() if v is not None})}"
-        req = Request(url, headers={
-            "Authorization": self.api_key,
-            "accept": "application/json",
-            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
-        })
+
+        req = Request(
+            url,
+            headers={
+                "Authorization": self.api_key,
+                "accept": "application/json",
+                "User-Agent": (
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+            },
+        )
+
         try:
             with urlopen(req, timeout=self.timeout) as resp:
                 return json.loads(resp.read().decode("utf-8"))
@@ -72,13 +80,17 @@ class TaostatsClient:
 
     def _load_fixture(self, path: str, params: dict | None) -> dict:
         slug = path.strip("/").replace("/", "_") or "root"
-        candidates = [FIXTURE_DIR / f"{slug}.json", FIXTURE_DIR / f"{slug}_default.json"]
+        candidates = [
+            FIXTURE_DIR / f"{slug}.json",
+            FIXTURE_DIR / f"{slug}_default.json",
+        ]
+
         for c in candidates:
             if c.exists():
                 return json.loads(c.read_text(encoding="utf-8"))
+
         raise TaostatsError(f"no offline fixture for {path} (looked in {FIXTURE_DIR})")
 
-    # endpoints
     def subnets(self, limit: int = 100, page: int = 1) -> list[dict]:
         data = self._get("/api/subnet/latest/v1", {"limit": limit, "page": page})
         return data.get("data", data) if isinstance(data, dict) else data
@@ -87,17 +99,15 @@ class TaostatsClient:
         data = self._get("/api/subnet/identity/v1", {"limit": 256})
         return data.get("data", data) if isinstance(data, dict) else data
 
-    def dtao_pools(self, limit: int = 256, page: int = 1) -> list[dict]:
-        data = self._get("/api/dtao/pool/latest/v1", {"limit": limit, "page": page})
-        return data.get("data", data) if isinstance(data, dict) else data
-
     def subnet_detail(self, netuid: int) -> dict:
-        data = self._get(f"/api/subnet/latest/v1", {"netuid": netuid})
+        data = self._get("/api/subnet/latest/v1", {"netuid": netuid})
         rows = data.get("data", data) if isinstance(data, dict) else data
+
         if isinstance(rows, list) and rows:
             return rows[0]
         if isinstance(rows, dict):
             return rows
+
         raise TaostatsError(f"no data for netuid {netuid}")
 
 
@@ -109,25 +119,10 @@ def save_snapshot(payload: dict, *, label: str = "subnets") -> Path:
     return path
 
 
-def save_live_cache(payload: dict) -> Path:
-    DATA_DIR.mkdir(parents=True, exist_ok=True)
-    enriched = {
-        "created_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
-        **payload,
-    }
-    CACHE_PATH.write_text(json.dumps(enriched, indent=2, sort_keys=True), encoding="utf-8")
-    return CACHE_PATH
-
-
-def load_live_cache() -> dict | None:
-    if not CACHE_PATH.exists():
-        return None
-    return json.loads(CACHE_PATH.read_text(encoding="utf-8"))
-
-
 def latest_snapshot(label: str = "subnets") -> Path | None:
     if not DATA_DIR.exists():
         return None
+
     matches = sorted(DATA_DIR.glob(f"{label}_*.json"))
     return matches[-1] if matches else None
 

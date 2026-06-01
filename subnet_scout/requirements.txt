@@ -1,0 +1,3 @@
+# Subnet Scout uses only the Python standard library.
+# This file exists so `pip install -r requirements.txt` is a no-op,
+# and so dependency-scanning tools see an empty list rather than scraping imports.

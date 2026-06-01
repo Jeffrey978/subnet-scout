@@ -1,15 +1,9 @@
+# Python
 __pycache__/
-*.pyc
-*.pyo
-.venv/
-venv/
-.env
-.DS_Store
+*.py[cod]
 
-# snapshot output - keep the dir but not the dated files
+# Subnet Scout generated data
+data/subnet_scout/live_cache.json
 data/subnet_scout/subnets_*.json
-data/subnet_scout/identities_*.json
-snapshot.log
-*.csv
-*.md
-!README.md
+data/subnet_scout/snapshot*.json
+data/subnet_scout/latest.json
